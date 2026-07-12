@@ -1,0 +1,28 @@
+[package]
+name = "hisi-crypto"
+version = "0.1.0-alpha.1"
+edition = "2024"
+rust-version = "1.85"
+authors = ["sanchuanhehe"]
+license = "MIT"
+description = "Crypto provider contracts and portable backend for HiSilicon embedded Rust"
+repository = "https://github.com/hispark-rs/hisi-crypto"
+keywords = ["embedded", "no-std", "cryptography", "hisilicon"]
+categories = ["cryptography", "embedded", "no-std"]
+
+[dependencies]
+aes = { version = "0.8", default-features = false, optional = true }
+hmac = { version = "0.12", default-features = false, optional = true }
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"], optional = true }
+sha1 = { version = "0.10", default-features = false, optional = true }
+sha2 = { version = "0.10", default-features = false, optional = true }
+
+[features]
+default = ["rustcrypto"]
+rustcrypto = ["dep:aes", "dep:hmac", "dep:pbkdf2", "dep:sha1", "dep:sha2"]
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
