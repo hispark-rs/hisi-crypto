@@ -27,7 +27,7 @@ pub trait CryptoProvider {
         &self,
         password: &[u8],
         salt: &[u8],
-        iterations: u16,
+        iterations: u32,
         output: &mut [u8; 32],
     ) -> Result<(), CryptoError>;
     fn sha1(&self, parts: &[&[u8]], output: &mut [u8; 20]) -> Result<(), CryptoError>;
@@ -100,13 +100,13 @@ impl CryptoProvider for RustCryptoProvider {
         &self,
         password: &[u8],
         salt: &[u8],
-        iterations: u16,
+        iterations: u32,
         output: &mut [u8; 32],
     ) -> Result<(), CryptoError> {
         if iterations == 0 {
             return Err(CryptoError::InvalidLength);
         }
-        pbkdf2::pbkdf2_hmac::<sha1::Sha1>(password, salt, u32::from(iterations), output);
+        pbkdf2::pbkdf2_hmac::<sha1::Sha1>(password, salt, iterations, output);
         Ok(())
     }
     fn sha1(&self, parts: &[&[u8]], output: &mut [u8; 20]) -> Result<(), CryptoError> {
