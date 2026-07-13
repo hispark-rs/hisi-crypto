@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0-alpha.3] - 2026-07-13
+
+### Added
+
+- Small fallible crypto capability traits and explicit `CryptoSuite` composition.
+
+### Changed
+
+- Monolithic `CryptoProvider` is now a documented legacy migration surface;
+  new backends implement small capability traits instead.
+
 ## [Unreleased]
 
 ## [0.1.0-alpha.2] - 2026-07-13

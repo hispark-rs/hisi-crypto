@@ -21,7 +21,73 @@ impl CryptoError {
     }
 }
 
+/// Fallible PBKDF2-HMAC-SHA1 capability.
+pub trait Pbkdf2HmacSha1 {
+    fn derive_32(
+        &self,
+        password: &[u8],
+        salt: &[u8],
+        iterations: u32,
+        output: &mut [u8; 32],
+    ) -> Result<(), CryptoError>;
+}
+
+/// Fallible hash capability for a fixed output size.
+pub trait TryHash<const N: usize> {
+    fn hash(&self, parts: &[&[u8]], output: &mut [u8; N]) -> Result<(), CryptoError>;
+}
+
+/// Fallible MAC capability for a fixed output size.
+pub trait TryMac<const N: usize> {
+    fn mac(&self, key: &[u8], parts: &[&[u8]], output: &mut [u8; N]) -> Result<(), CryptoError>;
+}
+
+/// Fallible single-block cipher capability.
+pub trait TryBlockCipher {
+    fn encrypt_block(
+        &self,
+        key: &[u8],
+        input: &[u8; 16],
+        output: &mut [u8; 16],
+    ) -> Result<(), CryptoError>;
+    fn decrypt_block(
+        &self,
+        key: &[u8],
+        input: &[u8; 16],
+        output: &mut [u8; 16],
+    ) -> Result<(), CryptoError>;
+}
+
+/// Raw fallible entropy source. This is not a DRBG/CSPRNG.
+pub trait EntropySource {
+    fn fill_entropy(&self, output: &mut [u8]) -> Result<(), CryptoError>;
+}
+
+/// Explicit composition of independently selected crypto capabilities.
+#[derive(Clone, Copy, Debug)]
+pub struct CryptoSuite<H, M, A, R> {
+    pub hash: H,
+    pub mac: M,
+    pub block_cipher: A,
+    pub entropy: R,
+}
+
+impl<H, M, A, R> CryptoSuite<H, M, A, R> {
+    pub const fn new(hash: H, mac: M, block_cipher: A, entropy: R) -> Self {
+        Self {
+            hash,
+            mac,
+            block_cipher,
+            entropy,
+        }
+    }
+}
+
 /// Primitives required by radio security and future TLS adapters.
+///
+/// Legacy migration surface. New backends must implement only the small
+/// capability traits above; this trait will be deprecated after existing
+/// consumers migrate.
 pub trait CryptoProvider {
     fn pbkdf2_hmac_sha1(
         &self,
@@ -175,6 +241,68 @@ impl CryptoProvider for RustCryptoProvider {
     }
     fn fill_random(&self, _output: &mut [u8]) -> Result<(), CryptoError> {
         Err(CryptoError::Unsupported)
+    }
+}
+
+#[cfg(feature = "rustcrypto")]
+impl Pbkdf2HmacSha1 for RustCryptoProvider {
+    fn derive_32(
+        &self,
+        password: &[u8],
+        salt: &[u8],
+        iterations: u32,
+        output: &mut [u8; 32],
+    ) -> Result<(), CryptoError> {
+        CryptoProvider::pbkdf2_hmac_sha1(self, password, salt, iterations, output)
+    }
+}
+
+#[cfg(feature = "rustcrypto")]
+impl TryHash<20> for RustCryptoProvider {
+    fn hash(&self, parts: &[&[u8]], output: &mut [u8; 20]) -> Result<(), CryptoError> {
+        CryptoProvider::sha1(self, parts, output)
+    }
+}
+
+#[cfg(feature = "rustcrypto")]
+impl TryHash<32> for RustCryptoProvider {
+    fn hash(&self, parts: &[&[u8]], output: &mut [u8; 32]) -> Result<(), CryptoError> {
+        CryptoProvider::sha256(self, parts, output)
+    }
+}
+
+#[cfg(feature = "rustcrypto")]
+impl TryMac<20> for RustCryptoProvider {
+    fn mac(&self, key: &[u8], parts: &[&[u8]], output: &mut [u8; 20]) -> Result<(), CryptoError> {
+        CryptoProvider::hmac_sha1(self, key, parts, output)
+    }
+}
+
+#[cfg(feature = "rustcrypto")]
+impl TryMac<32> for RustCryptoProvider {
+    fn mac(&self, key: &[u8], parts: &[&[u8]], output: &mut [u8; 32]) -> Result<(), CryptoError> {
+        CryptoProvider::hmac_sha256(self, key, parts, output)
+    }
+}
+
+#[cfg(feature = "rustcrypto")]
+impl TryBlockCipher for RustCryptoProvider {
+    fn encrypt_block(
+        &self,
+        key: &[u8],
+        input: &[u8; 16],
+        output: &mut [u8; 16],
+    ) -> Result<(), CryptoError> {
+        CryptoProvider::aes_encrypt_block(self, key, input, output)
+    }
+
+    fn decrypt_block(
+        &self,
+        key: &[u8],
+        input: &[u8; 16],
+        output: &mut [u8; 16],
+    ) -> Result<(), CryptoError> {
+        CryptoProvider::aes_decrypt_block(self, key, input, output)
     }
 }
 
