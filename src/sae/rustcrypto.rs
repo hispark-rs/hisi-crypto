@@ -1,7 +1,9 @@
 use core::cmp::Ordering;
 
 use crypto_bigint::{
-    CheckedAdd, CheckedSub, Integer, NonZero, U512, subtle::ConditionallySelectable,
+    CheckedAdd, CheckedSub, Integer, NonZero, Odd, U512,
+    modular::{MontyForm, MontyParams},
+    subtle::ConditionallySelectable,
 };
 use p256::{
     AffinePoint, EncodedPoint, FieldBytes, ProjectivePoint, Scalar,
@@ -196,6 +198,18 @@ impl BignumArithmetic for RustCryptoBignum {
         modulus: &Self::Bignum,
     ) -> Result<Self::Bignum, CryptoError> {
         let modulus = Self::nonzero(modulus)?;
+        if let Some(odd_modulus) = Option::<Odd<U512>>::from(Odd::new(*modulus.as_ref())) {
+            // SAE group moduli are public odd primes. Montgomery form avoids
+            // performing a full-width division for every square and multiply
+            // while retaining the fixed 512-bit exponentiation schedule.
+            let parameters = MontyParams::new_vartime(odd_modulus);
+            let base = MontyForm::new(&Self::reduced(base, &modulus), parameters);
+            return Ok(SaeBignum(base.pow(&exponent.0).retrieve()));
+        }
+
+        // Preserve the general bignum contract for even moduli. SAE never uses
+        // this path, but callers should not lose the behavior the trait already
+        // exposed.
         let mut result = U512::ONE.rem(&modulus);
         let base = Self::reduced(base, &modulus);
 
