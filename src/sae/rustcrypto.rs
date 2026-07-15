@@ -1,7 +1,7 @@
 use core::cmp::Ordering;
 
 use crypto_bigint::{
-    CheckedAdd, CheckedSub, Integer, NonZero, Odd, U512,
+    CheckedAdd, CheckedSub, Integer, NonZero, Odd, U256, U512,
     modular::{MontyForm, MontyParams},
     subtle::ConditionallySelectable,
 };
@@ -198,6 +198,21 @@ impl BignumArithmetic for RustCryptoBignum {
         modulus: &Self::Bignum,
     ) -> Result<Self::Bignum, CryptoError> {
         let modulus = Self::nonzero(modulus)?;
+        if modulus.bits_vartime() <= U256::BITS && exponent.0.bits_vartime() <= U256::BITS {
+            let modulus_256 = modulus.resize::<{ U256::LIMBS }>();
+            if let Some(odd_modulus) = Option::<Odd<U256>>::from(Odd::new(modulus_256)) {
+                // SAE group 19 operates entirely in a 256-bit field. Keeping
+                // Montgomery arithmetic at that width halves the RV32 limb
+                // count without truncating either the modulus or exponent.
+                let parameters = MontyParams::new_vartime(odd_modulus);
+                let reduced = Self::reduced(base, &modulus).resize::<{ U256::LIMBS }>();
+                let base = MontyForm::new(&reduced, parameters);
+                let exponent = exponent.0.resize::<{ U256::LIMBS }>();
+                return Ok(SaeBignum(
+                    base.pow(&exponent).retrieve().resize::<{ U512::LIMBS }>(),
+                ));
+            }
+        }
         if let Some(odd_modulus) = Option::<Odd<U512>>::from(Odd::new(*modulus.as_ref())) {
             // SAE group moduli are public odd primes. Montgomery form avoids
             // performing a full-width division for every square and multiply

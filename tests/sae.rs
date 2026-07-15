@@ -151,6 +151,20 @@ fn modular_arithmetic_matches_small_integer_properties() {
 }
 
 #[test]
+fn modular_exponentiation_preserves_the_wide_odd_modulus_path() {
+    let backend = RustCryptoBignum;
+    let mut modulus = [0u8; 33];
+    modulus[0] = 1;
+    modulus[32] = 1;
+    let modulus = backend.init_set(&modulus).unwrap();
+
+    let result = backend
+        .exp_mod(&value(&backend, 2), &value(&backend, 8), &modulus)
+        .unwrap();
+    assert_eq!(as_u128(&backend, &result), 256);
+}
+
+#[test]
 fn inverse_legendre_and_entropy_injection_are_explicit() {
     let backend = RustCryptoBignum;
     let modulus = value(&backend, 2_017);
