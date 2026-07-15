@@ -6,6 +6,13 @@
 pub enum CryptoError {
     InvalidKey,
     InvalidLength,
+    InvalidValue,
+    ArithmeticOverflow,
+    DivisionByZero,
+    NotInvertible,
+    EntropyRejected,
+    InvalidPoint,
+    UnsupportedGroup,
     Unsupported,
     Backend(u32),
 }
@@ -16,10 +23,19 @@ impl CryptoError {
             Self::InvalidKey => 0xffff_0001,
             Self::InvalidLength => 0xffff_0002,
             Self::Unsupported => 0xffff_0003,
+            Self::InvalidValue => 0xffff_0004,
+            Self::ArithmeticOverflow => 0xffff_0005,
+            Self::DivisionByZero => 0xffff_0006,
+            Self::NotInvertible => 0xffff_0007,
+            Self::EntropyRejected => 0xffff_0008,
+            Self::InvalidPoint => 0xffff_0009,
+            Self::UnsupportedGroup => 0xffff_000a,
             Self::Backend(code) => code,
         }
     }
 }
+
+pub mod sae;
 
 /// Fallible PBKDF2-HMAC-SHA1 capability.
 pub trait Pbkdf2HmacSha1 {
@@ -137,8 +153,9 @@ impl RustCryptoProvider {
         output: &mut [u8; 16],
         decrypt: bool,
     ) -> Result<(), CryptoError> {
-        use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
-        let mut block = GenericArray::clone_from_slice(input);
+        use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
+        let mut block = aes::Block::default();
+        block.copy_from_slice(input);
         macro_rules! apply {
             ($ty:ty) => {{
                 let cipher = <$ty>::new_from_slice(key).map_err(|_| CryptoError::InvalidKey)?;

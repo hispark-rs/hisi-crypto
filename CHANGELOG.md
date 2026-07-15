@@ -13,6 +13,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add fine-grained, `no_std` hostap 2.11 SAE bignum and P-256 group 19
+  capabilities with a portable RustCrypto backend and host known-answer tests.
+- Add explicit caller-entropy bounded sampling and zeroizing opaque bignums.
+
 ## [0.1.0-alpha.2] - 2026-07-13
 
 ### Changed
