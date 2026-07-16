@@ -6,7 +6,8 @@ use hisi_crypto::{
     CryptoError,
     sae::{
         BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
-        LegendreSymbol, RustCryptoBignum, RustCryptoGroup19,
+        LegendreSymbol, P256AffinePoint, P256PointResult, RustCryptoBignum, RustCryptoGroup19,
+        TryP256PointAdd,
     },
 };
 
@@ -263,10 +264,13 @@ fn group_19_point_arithmetic_matches_known_answers() {
         y2,
         hex("07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1")
     );
-    assert!(group.point_eq(&doubled, &group.point_add(&generator, &generator)));
+    assert!(group.point_eq(
+        &doubled,
+        &Group19::point_add(&group, &generator, &generator)
+    ));
 
     let inverse = group.point_invert(&generator);
-    assert!(group.point_is_infinity(&group.point_add(&generator, &inverse)));
+    assert!(group.point_is_infinity(&Group19::point_add(&group, &generator, &inverse)));
     assert!(group.point_is_infinity(&group.point_mul(&generator, &group.order()).unwrap()));
     assert_eq!(
         group.point_to_xy(&group.identity()),
@@ -281,4 +285,33 @@ fn group_19_point_arithmetic_matches_known_answers() {
         bignum.cmp(&group.compute_y_squared(&gx).unwrap(), &expected_y_squared),
         Ordering::Equal
     );
+}
+
+#[test]
+fn narrow_p256_point_add_models_affine_and_infinity_results() {
+    let group = RustCryptoGroup19::group19();
+    let generator = group.generator();
+    let (gx, gy) = group.point_to_xy(&generator).unwrap();
+    let generator = P256AffinePoint::new(gx, gy);
+
+    let mut output = P256PointResult::Infinity;
+    TryP256PointAdd::point_add(&group, &generator, &generator, &mut output).unwrap();
+    assert_eq!(
+        output,
+        P256PointResult::Affine(P256AffinePoint::new(
+            hex("7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978"),
+            hex("07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1"),
+        ))
+    );
+
+    let inverse = group.point_invert(&group.generator());
+    let (ix, iy) = group.point_to_xy(&inverse).unwrap();
+    TryP256PointAdd::point_add(
+        &group,
+        &generator,
+        &P256AffinePoint::new(ix, iy),
+        &mut output,
+    )
+    .unwrap();
+    assert_eq!(output, P256PointResult::Infinity);
 }

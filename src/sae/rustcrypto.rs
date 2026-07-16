@@ -15,7 +15,8 @@ use p256::{
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use super::{
-    BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19, LegendreSymbol,
+    BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
+    LegendreSymbol, P256AffinePoint, P256PointResult, TryP256PointAdd,
 };
 use crate::CryptoError;
 
@@ -454,5 +455,25 @@ impl Group19 for RustCryptoGroup19 {
         let x_cubed_plus_ax = self.bignum.mul_mod(&x_squared_plus_a, x, &prime)?;
         self.bignum
             .add_mod(&x_cubed_plus_ax, &self.coefficient_b(), &prime)
+    }
+}
+
+impl TryP256PointAdd for RustCryptoGroup19 {
+    fn point_add(
+        &self,
+        a: &P256AffinePoint,
+        b: &P256AffinePoint,
+        output: &mut P256PointResult,
+    ) -> Result<(), CryptoError> {
+        let a = self.point_from_xy(&a.x, &a.y)?;
+        let b = self.point_from_xy(&b.x, &b.y)?;
+        let sum = <Self as Group19>::point_add(self, &a, &b);
+        if self.point_is_infinity(&sum) {
+            *output = P256PointResult::Infinity;
+        } else {
+            let (x, y) = self.point_to_xy(&sum)?;
+            *output = P256PointResult::Affine(P256AffinePoint::new(x, y));
+        }
+        Ok(())
     }
 }

@@ -48,6 +48,32 @@ pub trait TryP256PointMul {
     ) -> Result<(), CryptoError>;
 }
 
+/// Result of a fallible NIST P-256 affine point addition.
+///
+/// Affine coordinates cannot encode the identity element. Keeping infinity as
+/// an explicit variant prevents hardware adapters from inventing sentinel
+/// coordinates or silently treating a valid group result as a backend error.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum P256PointResult {
+    Infinity,
+    Affine(P256AffinePoint),
+}
+
+/// Fallible NIST P-256 affine point-addition capability.
+///
+/// The inputs are intentionally restricted to validated affine candidates;
+/// adapters handle identity inputs before entering this capability. A hardware
+/// backend must validate both points and report its own busy/timeout/fault
+/// errors instead of falling back to software after the operation starts.
+pub trait TryP256PointAdd {
+    fn point_add(
+        &self,
+        a: &P256AffinePoint,
+        b: &P256AffinePoint,
+        output: &mut P256PointResult,
+    ) -> Result<(), CryptoError>;
+}
+
 /// Maximum bignum size accepted by the SAE contract.
 pub const BIGNUM_BYTES: usize = 64;
 
