@@ -6,8 +6,10 @@ use hisi_crypto::{
     CryptoError,
     sae::{
         BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
-        LegendreSymbol, P256_FIELD_PRIME, P256AffinePoint, P256FieldElement, P256PointResult,
-        RustCryptoBignum, RustCryptoGroup19, TryP256FieldMul, TryP256FieldPow, TryP256PointAdd,
+        LegendreSymbol, P256_ELEMENT_BYTES, P256_FIELD_PRIME, P256AffinePoint, P256FieldElement,
+        P256PointResult, RustCryptoBignum, RustCryptoGroup19, TryP256ComputeYSquared,
+        TryP256FieldMul, TryP256FieldPow, TryP256PointAdd, TryP256PointInvert,
+        TryP256PointValidate,
     },
 };
 
@@ -384,4 +386,35 @@ fn narrow_p256_field_exponentiation_matches_known_answers() {
         output.as_be_bytes(),
         &hex("0000000000000000000000000000000000000000000000000000000000000001")
     );
+}
+
+#[test]
+fn narrow_p256_curve_composition_matches_group_19() {
+    let backend = RustCryptoGroup19::group19();
+    let generator = backend.generator();
+    let (gx, gy) = backend.point_to_xy(&generator).unwrap();
+    let generator = P256AffinePoint::new(gx, gy);
+
+    assert_eq!(backend.try_point_is_on_curve(&generator), Ok(true));
+    assert_eq!(
+        backend.try_point_is_on_curve(&P256AffinePoint::new(
+            [0; P256_ELEMENT_BYTES],
+            [0; P256_ELEMENT_BYTES]
+        ),),
+        Ok(false)
+    );
+
+    let x = P256FieldElement::try_from_be_bytes(gx).unwrap();
+    let y = P256FieldElement::try_from_be_bytes(gy).unwrap();
+    let mut y_squared = P256FieldElement::ZERO;
+    backend.try_compute_y_squared(&x, &mut y_squared).unwrap();
+    let mut expected = P256FieldElement::ZERO;
+    backend.field_square(&y, &mut expected).unwrap();
+    assert_eq!(y_squared, expected);
+
+    let mut inverse = P256AffinePoint::new([0; 32], [0; 32]);
+    backend.try_point_invert(&generator, &mut inverse).unwrap();
+    let mut sum = P256PointResult::Affine(generator);
+    TryP256PointAdd::point_add(&backend, &generator, &inverse, &mut sum).unwrap();
+    assert_eq!(sum, P256PointResult::Infinity);
 }

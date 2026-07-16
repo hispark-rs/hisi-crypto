@@ -90,6 +90,19 @@ pub trait TryP256FieldPow {
     ) -> Result<(), CryptoError>;
 }
 
+/// Fallible fixed-prime NIST P-256 `y^2 = x^3 - 3x + b` capability.
+///
+/// This is a curve-specific composition contract, not a generic polynomial or
+/// bignum provider. Hardware backends may compose smaller field primitives,
+/// but must propagate any busy, timeout, or fault error without fallback.
+pub trait TryP256ComputeYSquared {
+    fn try_compute_y_squared(
+        &self,
+        x: &P256FieldElement,
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError>;
+}
+
 /// One affine NIST P-256 point encoded as fixed-width big-endian coordinates.
 ///
 /// The constructor deliberately does not claim that arbitrary coordinates are
@@ -148,6 +161,24 @@ pub trait TryP256PointAdd {
         b: &P256AffinePoint,
         output: &mut P256PointResult,
     ) -> Result<(), CryptoError>;
+}
+
+/// Fallible NIST P-256 affine point inversion capability.
+///
+/// Inputs must be canonical affine coordinates. Implementations validate the
+/// point and return [`CryptoError::InvalidPoint`] instead of producing an
+/// unchecked `(x, p - y)` pair.
+pub trait TryP256PointInvert {
+    fn try_point_invert(
+        &self,
+        point: &P256AffinePoint,
+        output: &mut P256AffinePoint,
+    ) -> Result<(), CryptoError>;
+}
+
+/// Fallible NIST P-256 affine point-validation capability.
+pub trait TryP256PointValidate {
+    fn try_point_is_on_curve(&self, point: &P256AffinePoint) -> Result<bool, CryptoError>;
 }
 
 /// Maximum bignum size accepted by the SAE contract.

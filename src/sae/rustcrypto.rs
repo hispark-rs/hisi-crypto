@@ -16,8 +16,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use super::{
     BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
-    LegendreSymbol, P256AffinePoint, P256FieldElement, P256PointResult, TryP256FieldMul,
-    TryP256FieldPow, TryP256PointAdd,
+    LegendreSymbol, P256_ELEMENT_BYTES, P256AffinePoint, P256FieldElement, P256PointResult,
+    TryP256ComputeYSquared, TryP256FieldMul, TryP256FieldPow, TryP256PointAdd, TryP256PointInvert,
+    TryP256PointValidate,
 };
 use crate::CryptoError;
 
@@ -520,6 +521,49 @@ impl TryP256FieldPow for RustCryptoGroup19 {
         let result = P256FieldElement::try_from_be_bytes(encoded);
         encoded.zeroize();
         *output = result?;
+        Ok(())
+    }
+}
+
+impl TryP256ComputeYSquared for RustCryptoGroup19 {
+    fn try_compute_y_squared(
+        &self,
+        x: &P256FieldElement,
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError> {
+        let x = self.bignum.init_set(x.as_be_bytes())?;
+        let value = Group19::compute_y_squared(self, &x)?;
+        let mut encoded = [0u8; P256_ELEMENT_BYTES];
+        let result = self
+            .bignum
+            .write_be(&value, &mut encoded, P256_ELEMENT_BYTES);
+        if result != Ok(P256_ELEMENT_BYTES) {
+            encoded.zeroize();
+            return Err(CryptoError::InvalidValue);
+        }
+        let result = P256FieldElement::try_from_be_bytes(encoded);
+        encoded.zeroize();
+        *output = result?;
+        Ok(())
+    }
+}
+
+impl TryP256PointValidate for RustCryptoGroup19 {
+    fn try_point_is_on_curve(&self, point: &P256AffinePoint) -> Result<bool, CryptoError> {
+        Ok(self.point_from_xy(&point.x, &point.y).is_ok())
+    }
+}
+
+impl TryP256PointInvert for RustCryptoGroup19 {
+    fn try_point_invert(
+        &self,
+        point: &P256AffinePoint,
+        output: &mut P256AffinePoint,
+    ) -> Result<(), CryptoError> {
+        let point = self.point_from_xy(&point.x, &point.y)?;
+        let inverted = Group19::point_invert(self, &point);
+        let (x, y) = self.point_to_xy(&inverted)?;
+        *output = P256AffinePoint::new(x, y);
         Ok(())
     }
 }
