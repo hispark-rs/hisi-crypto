@@ -7,7 +7,7 @@ use hisi_crypto::{
     sae::{
         BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
         LegendreSymbol, P256_FIELD_PRIME, P256AffinePoint, P256FieldElement, P256PointResult,
-        RustCryptoBignum, RustCryptoGroup19, TryP256FieldMul, TryP256PointAdd,
+        RustCryptoBignum, RustCryptoGroup19, TryP256FieldMul, TryP256FieldPow, TryP256PointAdd,
     },
 };
 
@@ -344,5 +344,44 @@ fn narrow_p256_field_multiplication_is_canonical_and_matches_known_answers() {
     assert_eq!(
         P256FieldElement::try_from_be_bytes(P256_FIELD_PRIME),
         Err(CryptoError::InvalidValue)
+    );
+}
+
+#[test]
+fn narrow_p256_field_exponentiation_matches_known_answers() {
+    let backend = RustCryptoGroup19::group19();
+    let x = P256FieldElement::try_from_be_bytes(hex(
+        "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+    ))
+    .unwrap();
+    let mut output = P256FieldElement::ZERO;
+
+    backend.field_pow(&x, &[0; 32], &mut output).unwrap();
+    assert_eq!(
+        output.as_be_bytes(),
+        &hex("0000000000000000000000000000000000000000000000000000000000000001")
+    );
+
+    let mut one = [0; 32];
+    one[31] = 1;
+    backend.field_pow(&x, &one, &mut output).unwrap();
+    assert_eq!(output, x);
+
+    let inverse_exponent = hex("ffffffff00000001000000000000000000000000fffffffffffffffffffffffd");
+    backend
+        .field_pow(&x, &inverse_exponent, &mut output)
+        .unwrap();
+    assert_eq!(
+        output.as_be_bytes(),
+        &hex("e060cbb088706d5d24936933b69b16ab707d656273744b65664c49e577f35238")
+    );
+
+    let legendre_exponent = hex("7fffffff800000008000000000000000000000007fffffffffffffffffffffff");
+    backend
+        .field_pow(&x, &legendre_exponent, &mut output)
+        .unwrap();
+    assert_eq!(
+        output.as_be_bytes(),
+        &hex("0000000000000000000000000000000000000000000000000000000000000001")
     );
 }

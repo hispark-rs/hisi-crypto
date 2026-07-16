@@ -17,7 +17,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 use super::{
     BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
     LegendreSymbol, P256AffinePoint, P256FieldElement, P256PointResult, TryP256FieldMul,
-    TryP256PointAdd,
+    TryP256FieldPow, TryP256PointAdd,
 };
 use crate::CryptoError;
 
@@ -494,6 +494,29 @@ impl TryP256FieldMul for RustCryptoGroup19 {
         let b = U256::from_be_slice(b.as_be_bytes());
         let product = a.mul_mod_vartime(&b, &modulus);
         let mut encoded = product.to_be_bytes();
+        let result = P256FieldElement::try_from_be_bytes(encoded);
+        encoded.zeroize();
+        *output = result?;
+        Ok(())
+    }
+}
+
+impl TryP256FieldPow for RustCryptoGroup19 {
+    fn field_pow(
+        &self,
+        base: &P256FieldElement,
+        exponent: &[u8; 32],
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError> {
+        let modulus = Odd::new(U256::from_be_hex(
+            "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+        ));
+        let modulus = Option::from(modulus).ok_or(CryptoError::InvalidValue)?;
+        let parameters = MontyParams::new_vartime(modulus);
+        let base = U256::from_be_slice(base.as_be_bytes());
+        let base = MontyForm::new(&base, parameters);
+        let exponent = U256::from_be_slice(exponent);
+        let mut encoded = base.pow(&exponent).retrieve().to_be_bytes();
         let result = P256FieldElement::try_from_be_bytes(encoded);
         encoded.zeroize();
         *output = result?;

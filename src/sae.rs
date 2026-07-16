@@ -76,6 +76,20 @@ pub trait TryP256FieldMul {
     }
 }
 
+/// Fallible fixed-prime NIST P-256 field exponentiation capability.
+///
+/// The base is canonical and the modulus is fixed by [`P256FieldElement`].
+/// Keeping the exponent fixed-width lets hardware backends execute one bounded
+/// operation while reporting busy, timeout, and fault errors without fallback.
+pub trait TryP256FieldPow {
+    fn field_pow(
+        &self,
+        base: &P256FieldElement,
+        exponent: &[u8; P256_ELEMENT_BYTES],
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError>;
+}
+
 /// One affine NIST P-256 point encoded as fixed-width big-endian coordinates.
 ///
 /// The constructor deliberately does not claim that arbitrary coordinates are
