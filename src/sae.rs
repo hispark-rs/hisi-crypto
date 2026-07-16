@@ -14,6 +14,40 @@ pub const GROUP_19: u16 = 19;
 /// P-256 field-element and scalar length in bytes.
 pub const P256_ELEMENT_BYTES: usize = 32;
 
+/// One affine NIST P-256 point encoded as fixed-width big-endian coordinates.
+///
+/// The constructor deliberately does not claim that arbitrary coordinates are
+/// on the curve. A backend must validate the input, or return
+/// [`CryptoError::InvalidPoint`], before using it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct P256AffinePoint {
+    pub x: [u8; P256_ELEMENT_BYTES],
+    pub y: [u8; P256_ELEMENT_BYTES],
+}
+
+impl P256AffinePoint {
+    pub const fn new(x: [u8; P256_ELEMENT_BYTES], y: [u8; P256_ELEMENT_BYTES]) -> Self {
+        Self { x, y }
+    }
+}
+
+/// Fallible NIST P-256 scalar-multiplication capability.
+///
+/// This is intentionally narrower than [`Group19`]. Hardware engines commonly
+/// expose scalar multiplication with runtime failure, but not every bignum and
+/// point operation needed by SAE. Protocol adapters can therefore compose a
+/// hardware point-multiply capability with an explicitly selected software
+/// implementation for the remaining Dragonfly arithmetic without pretending
+/// the whole group implementation is hardware-backed.
+pub trait TryP256PointMul {
+    fn point_mul(
+        &self,
+        point: &P256AffinePoint,
+        scalar: &[u8; P256_ELEMENT_BYTES],
+        output: &mut P256AffinePoint,
+    ) -> Result<(), CryptoError>;
+}
+
 /// Maximum bignum size accepted by the SAE contract.
 pub const BIGNUM_BYTES: usize = 64;
 
