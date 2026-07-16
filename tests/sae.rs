@@ -6,8 +6,8 @@ use hisi_crypto::{
     CryptoError,
     sae::{
         BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
-        LegendreSymbol, P256AffinePoint, P256PointResult, RustCryptoBignum, RustCryptoGroup19,
-        TryP256PointAdd,
+        LegendreSymbol, P256_FIELD_PRIME, P256AffinePoint, P256FieldElement, P256PointResult,
+        RustCryptoBignum, RustCryptoGroup19, TryP256FieldMul, TryP256PointAdd,
     },
 };
 
@@ -314,4 +314,35 @@ fn narrow_p256_point_add_models_affine_and_infinity_results() {
     )
     .unwrap();
     assert_eq!(output, P256PointResult::Infinity);
+}
+
+#[test]
+fn narrow_p256_field_multiplication_is_canonical_and_matches_known_answers() {
+    let backend = RustCryptoGroup19::group19();
+    let x = P256FieldElement::try_from_be_bytes(hex(
+        "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+    ))
+    .unwrap();
+    let y = P256FieldElement::try_from_be_bytes(hex(
+        "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+    ))
+    .unwrap();
+    let mut output = P256FieldElement::ZERO;
+
+    backend.field_mul(&x, &y, &mut output).unwrap();
+    assert_eq!(
+        output.as_be_bytes(),
+        &hex("823cd15f6dd3c71933565064513a6b2bd183e554c6a08622f713ebbbface98be")
+    );
+
+    backend.field_square(&x, &mut output).unwrap();
+    assert_eq!(
+        output.as_be_bytes(),
+        &hex("98f6b84d29bef2b281819a5e0e3690d833b699495d694dd1002ae56c426b3f8c")
+    );
+
+    assert_eq!(
+        P256FieldElement::try_from_be_bytes(P256_FIELD_PRIME),
+        Err(CryptoError::InvalidValue)
+    );
 }

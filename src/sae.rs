@@ -14,6 +14,68 @@ pub const GROUP_19: u16 = 19;
 /// P-256 field-element and scalar length in bytes.
 pub const P256_ELEMENT_BYTES: usize = 32;
 
+/// NIST P-256 base-field prime encoded as fixed-width big-endian bytes.
+pub const P256_FIELD_PRIME: [u8; P256_ELEMENT_BYTES] = [
+    0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+];
+
+/// Canonical element of the NIST P-256 base field.
+///
+/// Construction rejects values greater than or equal to [`P256_FIELD_PRIME`].
+/// This lets hardware adapters accept a fixed, already-reduced operand instead
+/// of silently truncating or reducing a generic hostap bignum.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "rustcrypto",
+    derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop)
+)]
+pub struct P256FieldElement([u8; P256_ELEMENT_BYTES]);
+
+impl P256FieldElement {
+    pub const ZERO: Self = Self([0; P256_ELEMENT_BYTES]);
+
+    pub fn try_from_be_bytes(bytes: [u8; P256_ELEMENT_BYTES]) -> Result<Self, CryptoError> {
+        let mut borrow = 0u16;
+        for index in (0..P256_ELEMENT_BYTES).rev() {
+            let lhs = u16::from(bytes[index]);
+            let rhs = u16::from(P256_FIELD_PRIME[index]) + borrow;
+            borrow = u16::from(lhs < rhs);
+        }
+        if borrow == 1 {
+            Ok(Self(bytes))
+        } else {
+            Err(CryptoError::InvalidValue)
+        }
+    }
+
+    pub const fn as_be_bytes(&self) -> &[u8; P256_ELEMENT_BYTES] {
+        &self.0
+    }
+}
+
+/// Fallible fixed-prime NIST P-256 field multiplication capability.
+///
+/// This contract is deliberately not a generic bignum provider. Both operands
+/// are canonical field elements and the modulus is fixed by the type. Hardware
+/// busy, timeout, or fault errors must be returned without software fallback.
+pub trait TryP256FieldMul {
+    fn field_mul(
+        &self,
+        a: &P256FieldElement,
+        b: &P256FieldElement,
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError>;
+
+    fn field_square(
+        &self,
+        value: &P256FieldElement,
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError> {
+        self.field_mul(value, value, output)
+    }
+}
+
 /// One affine NIST P-256 point encoded as fixed-width big-endian coordinates.
 ///
 /// The constructor deliberately does not claim that arbitrary coordinates are

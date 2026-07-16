@@ -11,8 +11,10 @@ returns `Unsupported` on the software backend; entropy must come from an
 explicit platform provider.
 
 The `sae` module is a separate, narrow contract for the pinned hostap 2.11
-WPA3-SAE software profile. It provides an opaque 512-bit bignum plus P-256
-point operations through small capability traits. `RustCryptoBignum` and
+WPA3-SAE software profile. It provides an opaque 512-bit bignum plus typed,
+canonical P-256 field elements and point operations through small capability
+traits. `TryP256FieldMul` fixes the modulus in the type instead of pretending a
+chip accelerator is a generic bignum provider. `RustCryptoBignum` and
 `RustCryptoGroup19` are portable `no_std` implementations using
 `crypto-bigint`, `p256`, and `zeroize`. Only IKE group 19 is accepted; all other
 groups fail closed. Bounded random sampling consumes caller-provided entropy

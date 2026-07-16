@@ -16,7 +16,8 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use super::{
     BIGNUM_BYTES, BignumArithmetic, BignumEncoding, BignumRandom, GROUP_19, Group19,
-    LegendreSymbol, P256AffinePoint, P256PointResult, TryP256PointAdd,
+    LegendreSymbol, P256AffinePoint, P256FieldElement, P256PointResult, TryP256FieldMul,
+    TryP256PointAdd,
 };
 use crate::CryptoError;
 
@@ -474,6 +475,28 @@ impl TryP256PointAdd for RustCryptoGroup19 {
             let (x, y) = self.point_to_xy(&sum)?;
             *output = P256PointResult::Affine(P256AffinePoint::new(x, y));
         }
+        Ok(())
+    }
+}
+
+impl TryP256FieldMul for RustCryptoGroup19 {
+    fn field_mul(
+        &self,
+        a: &P256FieldElement,
+        b: &P256FieldElement,
+        output: &mut P256FieldElement,
+    ) -> Result<(), CryptoError> {
+        let modulus = NonZero::new(U256::from_be_hex(
+            "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+        ));
+        let modulus = Option::from(modulus).ok_or(CryptoError::DivisionByZero)?;
+        let a = U256::from_be_slice(a.as_be_bytes());
+        let b = U256::from_be_slice(b.as_be_bytes());
+        let product = a.mul_mod_vartime(&b, &modulus);
+        let mut encoded = product.to_be_bytes();
+        let result = P256FieldElement::try_from_be_bytes(encoded);
+        encoded.zeroize();
+        *output = result?;
         Ok(())
     }
 }
