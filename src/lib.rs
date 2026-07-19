@@ -5,9 +5,14 @@
 extern crate std;
 
 mod key;
+mod rng;
 mod secret;
 
 pub use key::{KeyHandle, KeyProviderId, KeyRef, KeySlot, KeyUsage};
+pub use rand_core::{TryCryptoRng, TryRngCore};
+pub use rng::{
+    DRBG_SEED_BYTES, EntropyRng, HealthCheckedEntropy, ReseedingCryptoRng, TrySeedableCryptoRng,
+};
 pub use secret::SecretBytes;
 
 /// Provider failure. Backend status values are preserved for platform diagnostics.
@@ -20,6 +25,7 @@ pub enum CryptoError {
     DivisionByZero,
     NotInvertible,
     EntropyRejected,
+    EntropyHealthCheckFailed,
     KeyUsageViolation,
     InvalidPoint,
     UnsupportedGroup,
@@ -41,7 +47,28 @@ impl CryptoError {
             Self::InvalidPoint => 0xffff_0009,
             Self::UnsupportedGroup => 0xffff_000a,
             Self::KeyUsageViolation => 0xffff_000b,
+            Self::EntropyHealthCheckFailed => 0xffff_000c,
             Self::Backend(code) => code,
+        }
+    }
+}
+
+impl core::fmt::Display for CryptoError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InvalidKey => formatter.write_str("invalid key"),
+            Self::InvalidLength => formatter.write_str("invalid length"),
+            Self::InvalidValue => formatter.write_str("invalid value"),
+            Self::ArithmeticOverflow => formatter.write_str("arithmetic overflow"),
+            Self::DivisionByZero => formatter.write_str("division by zero"),
+            Self::NotInvertible => formatter.write_str("value is not invertible"),
+            Self::EntropyRejected => formatter.write_str("entropy was rejected"),
+            Self::EntropyHealthCheckFailed => formatter.write_str("entropy health check failed"),
+            Self::KeyUsageViolation => formatter.write_str("key usage is not permitted"),
+            Self::InvalidPoint => formatter.write_str("invalid curve point"),
+            Self::UnsupportedGroup => formatter.write_str("unsupported group"),
+            Self::Unsupported => formatter.write_str("unsupported operation"),
+            Self::Backend(code) => write!(formatter, "backend error {code:#010x}"),
         }
     }
 }
@@ -89,6 +116,13 @@ pub trait TryBlockCipher {
 pub trait EntropySource {
     fn fill_entropy(&self, output: &mut [u8]) -> Result<(), CryptoError>;
 }
+
+/// Entropy source explicitly qualified for seeding a CSPRNG/DRBG.
+///
+/// Implementing this marker is a security claim backed by platform startup
+/// tests, online health checks, and source-specific evidence. It is not
+/// implemented automatically for every [`EntropySource`].
+pub trait CryptoEntropySource: EntropySource {}
 
 /// Explicit composition of independently selected crypto capabilities.
 #[derive(Clone, Copy, Debug)]

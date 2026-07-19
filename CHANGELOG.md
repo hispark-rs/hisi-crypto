@@ -6,6 +6,8 @@
 
 - Add zeroizing `SecretBytes` and usage-restricted `KeyHandle`/`KeyRef`
   contracts for exportable and non-exportable key material.
+- Separate raw entropy from fallible `rand_core` adapters, continuous health
+  checking, and request-bounded CSPRNG/DRBG reseeding policy.
 
 ## [0.1.0-alpha.4] - 2026-07-17
 

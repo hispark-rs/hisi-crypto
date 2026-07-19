@@ -16,6 +16,7 @@ hmac = { version = "0.12", default-features = false, optional = true }
 pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"], optional = true }
 p256 = { version = "0.13.2", default-features = false, features = ["arithmetic"], optional = true }
 crypto-bigint = { version = "0.6.1", default-features = false, features = ["zeroize"], optional = true }
+rand_core = { version = "0.9.5", default-features = false }
 sha1 = { version = "0.10", default-features = false, optional = true }
 sha2 = { version = "0.10", default-features = false, optional = true }
 zeroize = { version = "1.9", default-features = false, features = ["derive"] }

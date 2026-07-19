@@ -16,6 +16,15 @@ use an opaque `KeyHandle` carrying provider, slot, and `KeyUsage` metadata;
 safe code cannot issue a handle or obtain its bytes. `KeyRef` keeps these two
 paths distinct while enforcing the declared operation usages.
 
+`EntropySource` remains a raw, synchronous TRNG contract. `EntropyRng` adapts
+it to `rand_core::TryRngCore` but deliberately does not claim `TryCryptoRng`.
+Only a source with an explicit, evidence-backed `CryptoEntropySource` marker
+may seed the CSPRNG/DRBG wrapper.
+`HealthCheckedEntropy` rejects duplicate adjacent 128-bit blocks, while
+`ReseedingCryptoRng` performs checked initial seeding and request-bounded
+reseeding of an explicitly selected `TrySeedableCryptoRng` backend. The crate
+does not silently choose a DRBG algorithm or substitute software after failure.
+
 The `sae` module is a separate, narrow contract for the pinned hostap 2.11
 WPA3-SAE software profile. It provides an opaque 512-bit bignum plus typed,
 canonical P-256 field elements and point operations through small capability
