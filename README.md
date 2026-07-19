@@ -10,6 +10,12 @@ ABIs, keys in NVS, or peripheral register drivers. `fill_random` deliberately
 returns `Unsupported` on the software backend; entropy must come from an
 explicit platform provider.
 
+Exportable key material uses `SecretBytes`, which is zeroized on drop and only
+reveals bytes through explicitly named accessors. Non-exportable backend keys
+use an opaque `KeyHandle` carrying provider, slot, and `KeyUsage` metadata;
+safe code cannot issue a handle or obtain its bytes. `KeyRef` keeps these two
+paths distinct while enforcing the declared operation usages.
+
 The `sae` module is a separate, narrow contract for the pinned hostap 2.11
 WPA3-SAE software profile. It provides an opaque 512-bit bignum plus typed,
 canonical P-256 field elements and point operations through small capability

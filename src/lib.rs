@@ -1,6 +1,15 @@
 #![no_std]
 #![doc = include_str!("../README.md")]
 
+#[cfg(test)]
+extern crate std;
+
+mod key;
+mod secret;
+
+pub use key::{KeyHandle, KeyProviderId, KeyRef, KeySlot, KeyUsage};
+pub use secret::SecretBytes;
+
 /// Provider failure. Backend status values are preserved for platform diagnostics.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CryptoError {
@@ -11,6 +20,7 @@ pub enum CryptoError {
     DivisionByZero,
     NotInvertible,
     EntropyRejected,
+    KeyUsageViolation,
     InvalidPoint,
     UnsupportedGroup,
     Unsupported,
@@ -30,6 +40,7 @@ impl CryptoError {
             Self::EntropyRejected => 0xffff_0008,
             Self::InvalidPoint => 0xffff_0009,
             Self::UnsupportedGroup => 0xffff_000a,
+            Self::KeyUsageViolation => 0xffff_000b,
             Self::Backend(code) => code,
         }
     }

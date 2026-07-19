@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add zeroizing `SecretBytes` and usage-restricted `KeyHandle`/`KeyRef`
+  contracts for exportable and non-exportable key material.
+
 ## [0.1.0-alpha.4] - 2026-07-17
 
 ### Added
